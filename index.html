@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PEF v1.2.0 - Mr. Shake Neural Intelligence</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Inter:wght@100;300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bibliotecas Core - Ordem de carregamento blindada -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root { --glass: rgba(255, 255, 255, 0.7); }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #FBFBFD; 
+            color: #1d1d1f;
+            -webkit-font-smoothing: antialiased;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .font-baloo { font-family: 'Baloo 2', cursive; }
+        
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 24px;
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.03);
+        }
+
+        .ai-button {
+            background: #000;
+            color: #fff;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .ai-button:hover {
+            background: #333;
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        /* Relatório estilo OpenAI/Apple */
+        .exec-report {
+            background: white; color: #1d1d1f; padding: 40px 60px;
+            max-width: 850px; margin: 0 auto;
+            line-height: 1.8; font-size: 15px; font-weight: 400;
+            text-align: left;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+            border-radius: 4px;
+        }
+
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.1); }
+        }
+        .animate-neural { animation: pulse-soft 4s infinite ease-in-out; }
+
+        .data-font { font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d2d2d7; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } = window.Recharts;
+
+        // --- CONFIGURAÇÕES ---
+        const APP_VERSION = "1.2.0";
+        const LOGO_URL = "https://i.ibb.co/1f2w8RLy/mrshake-logo.png";
+        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+        const APP_ID = window.__app_id || 'mr-shake-pef-storage';
+        const ADMIN_KEY = "305106112Aa@"; 
+        const apiKey = "AIzaSyAF8DvJ0rYKoavPMi7bBCYP1ZVJqCsR5JA"; 
+
+        const CLASSIFICACOES = {
+            COMITE: { color: '#a855f7' }, 
+            BRONZE: { color: '#A97142' }, 
+            PRATA: { color: '#8e8e93' },
+            OURO: { color: '#ffb300' },
+            DIAMANTE: { color: '#0071e3' }
+        };
+
+        const CONSULTOR_IMAGES = {
+            "Daniel": "https://i.ibb.co/bfHn7gW/daniel.jpg",
+            "Roque": "https://i.ibb.co/k6DXFGdc/roque.jpg",
+            "Karlla": "https://i.ibb.co/214SngTX/karlla.jpg"
+        };
+
+        // --- UTILITÁRIOS ---
+        const parseVal = (v) => {
+            if (typeof v === 'number') return v;
+            let c = String(v || "0").replace(/[R$%\s]/g, "").replace(/\./g, "").replace(",", ".");
+            return parseFloat(c) || 0;
+        };
+
+        const mapConsultor = (name) => {
+            const n = String(name || "").toUpperCase();
+            if (n.includes("DANIEL LUIS")) return "Daniel";
+            if (n.includes("ROQUE DO CARMO")) return "Roque";
+            if (n.includes("KARLLA LIMA")) return "Karlla";
+            return "Outros";
+        };
+
+        // --- COMPONENTES AUXILIARES ---
+
+        const CustomTooltip = ({ active, payload, total }) => {
+            if (active && payload && payload.length) {
+                const val = payload[0].value;
+                const perc = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                return (
+                    <div className="bg-white/90 backdrop-blur-md border border-[#f5f5f7] p-4 rounded-2xl shadow-2xl text-left">
+                        <p className="text-[10px] font-bold text-[#86868b] uppercase tracking-[0.2em] mb-1">{payload[0].payload.name}</p>
+                        <p className="text-xl font-bold text-[#1d1d1f] leading-none">{val} Unidades</p>
+                        <p className="text-xs font-semibold text-purple-600 mt-2">{perc}% da seleção</p>
+                    </div>
+                );
+            }
+            return null;
+        };
+
+        const Icon = ({ name, size = 20, color = "currentColor" }) => {
+            const icons = {
+                neural: (
+                    <g fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="2" fill={color}/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+                        <path d="M12 7v3m0 4v3M7 12h3m4 0h3M6.5 6.5l2 2m7 7l2 2M6.5 17.5l2-2m7-7l2 2"/>
+                    </g>
+                ),
+                x: <path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                import: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5 5 5 5-5m-5 5V3" fill="none" stroke={color} strokeWidth="1.2"/>,
+                database: <path d="M12 21c-4.418 0-8-1.79-8-4s3.582-4 8-4 8 1.79 8 4-3.582 4-8 4zm8-4V7c0-2.21-3.582-4-8-4S4 4.79 4 7v10m16-5c0 2.21-3.582 4-8 4S4 14.21 4 12" fill="none" stroke={color} strokeWidth="1.2"/>,
+                lock: <path d="M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z" fill="none" stroke={color} strokeWidth="1.2"/>,
+                unlock: <path d="M7 11V7a5 5 0 0 1 8-4M5 11h14v10H5z" fill="none" stroke={color} strokeWidth="1.2"/>,
+                trash: <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke={color} strokeWidth="1.2"/>
+            };
+            return <svg width={size} height={size} viewBox="0 0 24 24" fill="none">{icons[name] || icons.neural}</svg>;
+        };
+
+        const TableView = ({ data, title, color, totalOverall }) => (
+            <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="flex items-baseline justify-between mb-6 px-2 text-left">
+                    <h2 className="text-3xl font-bold tracking-tight text-[#1d1d1f] uppercase">{title}</h2>
+                    <span className="text-xs font-medium text-[#86868b] tracking-tight">{data.length} unidades identificadas</span>
+                </div>
+                <div className="glass-card overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-[#f5f5f7]/30 border-b border-[#f5f5f7]">
+                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b]">Unidade</th>
+                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b]">Consultor</th>
+                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b] text-right">Pontos</th>
+                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b] text-center">Desconto</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f5f5f7]">
+                            {data.map((l, i) => (
+                                <tr key={i} className="hover:bg-white transition-all group">
+                                    <td className="p-5 font-bold text-[#1d1d1f] border-l-4" style={{ borderColor: color }}>{l.cidade}</td>
+                                    <td className="p-5 text-xs font-medium text-[#86868b]">{l.consultorMapeado}</td>
+                                    <td className="p-5 text-xl font-bold text-right text-[#1d1d1f] data-font">{parseFloat(l.total || 0).toFixed(2)}</td>
+                                    <td className="p-5 text-sm font-semibold text-center text-[#86868b]">{l.desconto}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+
+        const EvolutionCard = ({ title, list, targetColor, nextPts }) => (
+            <div className="glass-card p-6 flex-1 min-w-[300px]">
+                <div className="flex items-center justify-between mb-5 text-left">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#86868b]">{title}</span>
+                    <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: targetColor }} />
+                </div>
+                <div className="space-y-3">
+                    {list.length > 0 ? list.map((loja, i) => (
+                        <div key={i} className="flex items-center justify-between group">
+                            <div className="text-left">
+                                <div className="text-sm font-semibold text-[#1d1d1f] group-hover:text-purple-600 transition-colors">{loja.cidade}</div>
+                                <div className="text-[10px] font-medium text-[#86868b]">Faltam {(nextPts - parseVal(loja.total)).toFixed(2)} pts</div>
+                            </div>
+                            <div className="text-sm font-bold text-[#1d1d1f] data-font">{parseVal(loja.total).toFixed(2)}</div>
+                        </div>
+                    )) : <div className="py-2 text-[10px] text-[#d2d2d7] italic uppercase">Objetivo Alcançado</div>}
+                </div>
+            </div>
+        );
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [db, setDb] = useState(null);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showAdminModal, setShowAdminModal] = useState(false);
+            const [adminInput, setAdminInput] = useState('');
+            const [loginError, setLoginError] = useState(false);
+            const [view, setView] = useState('dashboard');
+            const [dashTab, setDashTab] = useState('resumo');
+            const [historicoPef, setHistoricoPef] = useState([]);
+            const [periodoAlvoId, setPeriodoAlvoId] = useState('');
+            const [consultorAlvo, setConsultorAlvo] = useState('TODOS');
+            const [showAiModal, setShowAiModal] = useState(false);
+            const [isAiLoading, setIsAiLoading] = useState(false);
+            const [chatMessages, setChatMessages] = useState([]);
+            const [userInput, setUserInput] = useState('');
+            const [isDragging, setIsDragging] = useState(false);
+            const [uploadSuccess, setUploadSuccess] = useState(false);
+            const [novoMes, setNovoMes] = useState({ mes: '', ano: '2026', lojasProcessadas: [] });
+            
+            const fileInputRef = useRef(null);
+            const chatEndRef = useRef(null);
+
+            useEffect(() => {
+                const initFirebase = async () => {
+                    if (firebase.apps.length === 0) firebase.initializeApp(firebaseConfig);
+                    const auth = firebase.auth();
+                    const firestore = firebase.firestore();
+                    setDb(firestore);
+                    try {
+                        if (window.__initial_auth_token) await auth.signInWithCustomToken(window.__initial_auth_token);
+                        else await auth.signInAnonymously();
+                    } catch (e) {}
+                    auth.onAuthStateChanged(setUser);
+                };
+                initFirebase();
+            }, []);
+
+            useEffect(() => {
+                if (!user || !db) return;
+                const unsub = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef')
+                    .onSnapshot((snap) => {
+                        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        const sorted = data.sort((a, b) => b.criadoEm?.localeCompare(a.criadoEm));
+                        setHistoricoPef(sorted);
+                        if (sorted.length > 0 && !periodoAlvoId) setPeriodoAlvoId(sorted[0].id);
+                    }, (err) => console.error(err));
+                return () => unsub();
+            }, [user, db]);
+
+            useEffect(() => {
+                if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }, [chatMessages, isAiLoading]);
+
+            const activePeriodo = useMemo(() => historicoPef.find(x => x.id === periodoAlvoId), [historicoPef, periodoAlvoId]);
+            
+            const processedData = useMemo(() => {
+                if (!activePeriodo) return [];
+                return (activePeriodo.lojas || [])
+                    .map(l => ({...l, consultorMapeado: mapConsultor(l.consultor)}))
+                    .filter(l => l.codigo && String(l.codigo) !== "0" && !String(l.cidade).includes("TOTAL"));
+            }, [activePeriodo]);
+
+            const activeData = useMemo(() => {
+                if (consultorAlvo === 'TODOS') return processedData;
+                return processedData.filter(l => l.consultorMapeado === consultorAlvo);
+            }, [processedData, consultorAlvo]);
+
+            const finStats = useMemo(() => {
+                let totalRede = 0, basePEF = 0, totalDesconto = 0, participantesPEF = 0;
+                let counts = { COMITE: 0, BRONZE: 0, PRATA: 0, OURO: 0, DIAMANTE: 0 };
+                activeData.forEach(l => {
+                    const c = String(l.classe || "").toUpperCase();
+                    if (counts[c] !== undefined) counts[c]++;
+                    const fat = parseVal(l.faturamento);
+                    totalRede += fat;
+                    if (c !== 'COMITE') {
+                        basePEF += fat;
+                        participantesPEF++;
+                        totalDesconto += (fat * 0.045 * (parseVal(l.desconto)/100));
+                    }
+                });
+                return { totalRede, basePEF, royaltiesBrutos: basePEF * 0.045, totalDesconto, counts, total: activeData.length, participantesPEF };
+            }, [activeData]);
+
+            // --- LÓGICA DO ARRASTE ---
+            const onDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+            const onDragLeave = () => { setIsDragging(false); };
+            const onDrop = (e) => { e.preventDefault(); setIsDragging(false); handleFileUpload(e); };
+
+            // --- LÓGICA NEURAL CALIBRADA ---
+            const handleSendMessage = async (msgOverride = null) => {
+                const msg = msgOverride || userInput;
+                if (!msg.trim()) return;
+                const newMessages = [...chatMessages, { role: 'user', text: msg }];
+                setChatMessages(newMessages);
+                if (!msgOverride) setUserInput('');
+                setIsAiLoading(true);
+
+                const formatList = (classe) => activeData
+                    .filter(l => String(l.classe).toUpperCase() === classe)
+                    .map(l => `**${l.cidade}**: ${parseVal(l.total)} pts`)
+                    .join('; ');
+
+                const bronzeStores = activeData.filter(l => String(l.classe).toUpperCase() === 'BRONZE');
+                const bronzeZeros = bronzeStores.map(l => {
+                    const z = [];
+                    if (parseVal(l.financeiro) === 0) z.push("FINANCEIRO");
+                    if (parseVal(l.meta) === 0) z.push("META");
+                    if (parseVal(l.syntax) === 0) z.push("SYNTAX");
+                    if (parseVal(l.engajamento) === 0) z.push("ENGAJAMENTO");
+                    if (parseVal(l.oculto) === 0) z.push("OCULTO");
+                    return `**${l.cidade}** [Critérios técnicos zerados: ${z.join(', ') || 'Nenhum'}]`;
+                }).join('; ');
+
+                const systemInstruction = `Voce é o Analista Neural Intelligence da Mr. Shake. Atue de forma executiva e técnica.
+                
+                DATASET COMPLETO PARA CONSULTA:
+                - PERIODO: ${activePeriodo?.titulo} | CONSULTOR: ${consultorAlvo}
+                - TOTAL UNIDADES ATIVAS: ${finStats.total} | PARTICIPANTES PEF: ${finStats.participantesPEF}
+                - UNIDADES BRONZE (E SEUS ERROS): ${bronzeZeros}
+                - UNIDADES PRATA: ${formatList('PRATA')}
+                - UNIDADES OURO: ${formatList('OURO')}
+                - UNIDADES DIAMANTE: ${formatList('DIAMANTE')}
+                
+                REGRAS DE FORMATAÇÃO (ESTRITO):
+                1. Use CAIXA ALTA (Caps Lock) APENAS para TÍTULOS de seções.
+                2. Nomes de lojas devem estar SEMPRE em **negrito** (ex: **UNIDADE CURVELO**).
+                3. O restante do texto deve ser escrito em caixa normal (maiúsculas/minúsculas).
+                4. PROIBIDO Markdown de cabeçalho (# ou *). Use apenas texto limpo e quebras de linha.
+                
+                ESCOPO DO RELATORIO:
+                1. PERIODO DE ANALISE; 2. CONSULTOR; 3. RESUMO EXECUTIVO (Mencione obrigatoriamente as ${finStats.participantesPEF} unidades participantes); 4. ANALISE DE UNIDADES BRONZE (Aponte os critérios técnicos zerados para cada uma conforme a lista acima); 5. OPORTUNIDADES PRATA/OURO; 6. FECHAMENTO; 7. DATA: 05/01/2026; 8. ANALISTA NEURAL INTELLIGENCE MR. SHAKE.`;
+
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: newMessages.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })), systemInstruction: { parts: [{ text: systemInstruction }] } })
+                    });
+                    const d = await res.json();
+                    setChatMessages([...newMessages, { role: 'assistant', text: d.candidates?.[0]?.content?.parts?.[0]?.text || "Erro na análise neural." }]);
+                } catch (e) {
+                    setChatMessages([...newMessages, { role: 'assistant', text: "Erro de conexão neural." }]);
+                }
+                setIsAiLoading(false);
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target?.files?.[0] || e.dataTransfer?.files?.[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+                    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+                    const processed = rows.slice(1).map(r => ({
+                        codigo: r[0] || "", cidade: r[1] || "Unidade", consultor: r[2] || "N/A",
+                        financeiro: r[13] || 0, engajamento: r[15] || 0, syntax: r[17] || 0, oculto: r[18] || 0,
+                        faturamento: r[19] || 0, meta: r[32] || 0, total: r[33] || 0, classe: r[34] || "BRONZE", desconto: r[35] || 0
+                    })).filter(l => l.codigo && String(l.codigo) !== "0" && l.cidade !== "TOTAL GERAL");
+                    setNovoMes(p => ({...p, lojasProcessadas: processed})); setUploadSuccess(true);
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            return (
+                <div className="min-h-screen pb-10 text-left">
+                    <nav className="h-16 bg-[#1D1D1F]/90 backdrop-blur-xl sticky top-0 z-50 border-b border-black flex items-center justify-between px-8 transition-all duration-500 text-left">
+                        <div className="flex items-center gap-5 text-left">
+                            <img src={LOGO_URL} className="h-8" />
+                            <div className="h-6 w-[1px] bg-zinc-700"/>
+                            <div className="text-left leading-none text-white font-bold uppercase tracking-tight text-xl text-left">
+                                PEF <span className="text-[10px] block text-zinc-500 font-normal uppercase tracking-widest mt-1">Neural Intelligence</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 bg-zinc-800/40 p-1 rounded-2xl border border-zinc-700/30 text-left">
+                            <button onClick={()=>{setView('dashboard'); setDashTab('resumo');}} className={`px-5 py-2 rounded-xl text-[10px] font-bold transition-all ${view==='dashboard'?'bg-white text-black shadow-sm':'text-zinc-500 hover:text-white'}`}>Painel</button>
+                            {isAdmin && (
+                                <>
+                                    <button onClick={()=>setView('upload')} className={`px-5 py-2 rounded-xl text-[10px] font-bold transition-all ${view==='upload'?'bg-white text-black shadow-sm':'text-zinc-500 hover:text-white'}`}>Importar</button>
+                                    <button onClick={()=>setView('history')} className={`px-5 py-2 rounded-xl text-[10px] font-bold transition-all ${view==='history'?'bg-white text-black shadow-sm':'text-zinc-500 hover:text-white'}`}>Banco</button>
+                                </>
+                            )}
+                            <button onClick={()=>isAdmin?setIsAdmin(false):setShowAdminModal(true)} className="p-2 text-zinc-400 hover:text-white transition-colors">{isAdmin ? <Icon name="unlock" size={16}/> : <Icon name="lock" size={16}/>}</button>
+                        </div>
+                    </nav>
+
+                    <main className="max-w-6xl mx-auto mt-10 px-8 text-left text-left">
+                        {view === 'dashboard' && (
+                            <div className="animate-in fade-in duration-500 text-left">
+                                <header className="flex justify-between items-end mb-10 text-left">
+                                    <div className="text-left">
+                                        <h1 className="text-4xl font-bold tracking-tighter uppercase text-left">Dashboard</h1>
+                                        <p className="text-zinc-400 uppercase text-[10px] tracking-widest mt-1 text-left">gestao de performance</p>
+                                    </div>
+                                    <div className="flex items-center gap-5 text-left">
+                                        {consultorAlvo !== 'TODOS' && CONSULTOR_IMAGES[consultorAlvo] && <img src={CONSULTOR_IMAGES[consultorAlvo]} className="h-12 w-12 rounded-full border-2 border-white shadow-md"/>}
+                                        <div className="flex flex-col text-left">
+                                            <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1 ml-1 text-left">Filtro de Campo</span>
+                                            <div className="flex gap-2 text-left">
+                                                <select value={consultorAlvo} onChange={(e) => {setConsultorAlvo(e.target.value); setDashTab('resumo');}} className="bg-white border border-zinc-200 px-4 py-2.5 rounded-xl text-[10px] font-bold outline-none shadow-sm cursor-pointer text-left">
+                                                    <option value="TODOS">TODA A REDE</option>
+                                                    {Array.from(new Set(processedData.map(l => l.consultorMapeado))).filter(c=>c!=="Outros").map(c=><option key={c} value={c}>{c.toUpperCase()}</option>)}
+                                                </select>
+                                                <select value={periodoAlvoId} onChange={(e) => {setPeriodoAlvoId(e.target.value); setConsultorAlvo('TODOS'); setDashTab('resumo');}} className="bg-white border border-zinc-200 px-4 py-2.5 rounded-xl text-[10px] font-bold outline-none shadow-sm cursor-pointer text-left">
+                                                    {historicoPef.map(p=><option key={p.id} value={p.id}>{p.titulo}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <button onClick={()=>{if(!activePeriodo) return; setShowAiModal(true); if(chatMessages.length===0) handleSendMessage("Gerar relatório oficial de auditoria.");}} className="ai-button mt-5 px-8 py-3 rounded-xl font-bold text-[9px] uppercase flex items-center gap-2 tracking-widest shadow-xl text-left"><div className="animate-neural"><Icon name="neural" size={14} color="white"/></div> Neural Intelligence</button>
+                                    </div>
+                                </header>
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10 text-left">
+                                    {[ 
+                                        {l:'Faturamento Rede',v:finStats.totalRede}, 
+                                        {l:'Base PEF',v:finStats.basePEF}, 
+                                        {l:'Royalties (4,5%)',v:finStats.royaltiesBrutos}, 
+                                        {l:'Descontos PEF',v:finStats.totalDesconto, c:true} 
+                                    ].map((x,i)=>(
+                                        <div key={i} className="glass-card p-6 flex flex-col justify-between text-left">
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-left">{x.l}</span>
+                                            <span className={`text-xl font-bold data-font ${x.c?'text-blue-600':''} text-left`}>R$ {x.v.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-10 text-center text-left">
+                                    <div onClick={()=>setDashTab('resumo')} className={`p-6 rounded-3xl border cursor-pointer transition-all flex flex-col items-center ${dashTab==='resumo'?'bg-black text-white shadow-xl scale-105':'bg-white text-black'}`}>
+                                        <span className="text-[9px] uppercase font-bold opacity-50 mb-1">Total</span>
+                                        <span className="text-2xl font-black">{finStats.total}</span>
+                                    </div>
+                                    {Object.keys(CLASSIFICACOES).map(c=>(
+                                        <div key={c} onClick={()=>setDashTab(c.toLowerCase())} className={`p-6 rounded-3xl border cursor-pointer transition-all flex flex-col items-center ${dashTab===c.toLowerCase()?'ring-2 ring-black shadow-lg':'bg-white text-zinc-400'}`}>
+                                            <span className="text-[9px] uppercase font-bold mb-1 text-center" style={{color:dashTab===c.toLowerCase()?CLASSIFICACOES[c].color:'inherit'}}>{c}</span>
+                                            <span className="text-2xl font-black text-black">{finStats.counts[c] || 0}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {dashTab === 'resumo' ? (
+                                    <div className="space-y-12 text-left">
+                                        <div className="glass-card p-8 h-[380px] relative text-left">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart data={Object.keys(CLASSIFICACOES).map(cls => ({ name: cls, value: finStats.counts[cls] || 0, fill: CLASSIFICACOES[cls].color }))} margin={{top: 30}}>
+                                                    <XAxis dataKey="name" fontSize={10} fontWeight="900" axisLine={false} tickLine={false} tick={{fill: '#86868b'}} dy={10}/><YAxis hide/><Tooltip cursor={{fill: '#f5f5f7'}} content={<CustomTooltip total={finStats.total}/>}/><Bar dataKey="value" radius={[10,10,10,10]} barSize={35}>{Object.keys(CLASSIFICACOES).map((c,i)=><Cell key={i} fill={CLASSIFICACOES[c].color}/>)}</Bar>
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                        <div className="flex flex-col md:flex-row gap-5 text-left">
+                                            <EvolutionCard title="Evolução Bronze → Prata" list={activeData.filter(l=>String(l.classe).toUpperCase()==='BRONZE'&&parseVal(l.total)>=50).sort((a,b)=>parseVal(b.total)-parseVal(a.total)).slice(0,5)} targetColor={CLASSIFICACOES.PRATA.color} nextPts={60}/>
+                                            <EvolutionCard title="Evolução Prata → Ouro" list={activeData.filter(l=>String(l.classe).toUpperCase()==='PRATA'&&parseVal(l.total)>=68).sort((a,b)=>parseVal(b.total)-parseVal(a.total)).slice(0,5)} targetColor={CLASSIFICACOES.OURO.color} nextPts={76}/>
+                                            <EvolutionCard title="Evolução Ouro → Diamante" list={activeData.filter(l=>String(l.classe).toUpperCase()==='OURO'&&parseVal(l.total)>=85).sort((a,b)=>parseVal(b.total)-parseVal(a.total)).slice(0,5)} targetColor={CLASSIFICACOES.DIAMANTE.color} nextPts={91}/>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <TableView data={activeData.filter(l => l.classe.toLowerCase() === dashTab).sort((a,b) => parseVal(b.total) - parseVal(a.total))} title={dashTab} color={CLASSIFICACOES[dashTab.toUpperCase()]?.color} totalOverall={finStats.total}/>
+                                )}
+                            </div>
+                        )}
+
+                        {view === 'upload' && isAdmin && (
+                            <div className="max-w-xl mx-auto glass-card p-12 text-center animate-in zoom-in duration-500 text-left">
+                                <h2 className="text-3xl font-bold uppercase tracking-tighter mb-8 text-center text-left">Importação</h2>
+                                <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={()=>fileInputRef.current.click()} className={`border-2 border-dashed p-16 rounded-[2rem] cursor-pointer transition-all ${isDragging?'border-blue-500 bg-blue-50':'border-zinc-200'} text-center text-left`}>
+                                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept=".xlsx,.xls"/>
+                                    <div className="text-4xl mb-4 opacity-20 text-center">📄</div>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 text-center">{uploadSuccess ? 'DADOS CARREGADOS' : 'CLIQUE OU ARRASTE O EXCEL'}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 mt-8 text-left">
+                                    <div className="text-left text-left"><span className="text-[9px] font-bold text-zinc-400 uppercase ml-2 text-left">Mês</span><input type="number" value={novoMes.mes} onChange={e=>setNovoMes({...novoMes, mes: e.target.value})} className="w-full bg-white border border-zinc-200 p-3.5 rounded-xl text-center font-bold outline-none focus:border-black text-center text-left"/></div>
+                                    <div className="text-left text-left"><span className="text-[9px] font-bold text-zinc-400 uppercase ml-2 text-left">Ano</span><input type="number" value={novoMes.ano} onChange={e=>setNovoMes({...novoMes, ano: e.target.value})} className="w-full bg-white border border-zinc-200 p-3.5 rounded-xl text-center font-bold outline-none focus:border-black text-center text-left"/></div>
+                                </div>
+                                <button onClick={async()=>{if(!novoMes.mes||!uploadSuccess)return;await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef').add({titulo:`${String(novoMes.mes).padStart(2,'0')}/${novoMes.ano}`,criadoEm:new Date().toISOString(),lojas:novoMes.lojasProcessadas});setUploadSuccess(false);setView('dashboard');}} className="w-full bg-black text-white py-5 rounded-2xl mt-10 font-bold uppercase tracking-widest text-[10px] shadow-2xl text-center text-left text-left">Gravar no Banco</button>
+                            </div>
+                        )}
+
+                        {view === 'history' && isAdmin && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-500 text-left">
+                                {historicoPef.map(p=>(
+                                    <div key={p.id} className="glass-card p-8 flex items-center justify-between text-left">
+                                        <div className="text-left">
+                                            <h3 className="text-2xl font-bold uppercase tracking-tighter text-[#1d1d1f] text-left">{p.titulo}</h3>
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-left">{p.lojas?.length||0} unidades registradas</span>
+                                        </div>
+                                        <div className="flex gap-3 text-left">
+                                            <button onClick={async()=>{if(confirm('Eliminar registro?')) await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef').doc(p.id).delete();}} className="p-3 text-zinc-300 hover:text-red-500 bg-[#f5f5f7] rounded-xl text-left"><Icon name="trash" size={20}/></button>
+                                            <button onClick={()=>{setPeriodoAlvoId(p.id); setView('dashboard');}} className="p-3 bg-black text-white rounded-xl shadow-md text-left"><Icon name="import" size={18}/></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+
+                    <footer className="mt-10 py-8 text-center opacity-30 text-[9px] font-black uppercase tracking-[0.5em] text-zinc-500 text-center text-left">
+                        Mr. Shake Neural System • v{APP_VERSION}
+                    </footer>
+
+                    {showAiModal && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-white/90 backdrop-blur-xl animate-in fade-in duration-300 text-left text-left">
+                            <div className="bg-white border border-zinc-200 rounded-[32px] w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden text-left">
+                                <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-white text-left">
+                                    <div className="flex items-center gap-4 text-left"><div className="bg-black p-3 rounded-2xl text-white shadow-lg text-left"><Icon name="neural" size={24}/></div><div className="text-left text-left text-left"><h3 className="text-xl font-bold uppercase tracking-tighter text-left">Neural Intelligence</h3><p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-left">Auditoria Mr. Shake</p></div></div>
+                                    <button onClick={()=>setShowAiModal(false)} className="bg-zinc-50 p-2 rounded-full hover:bg-zinc-100 transition-colors text-left"><Icon name="x" size={24} color="#000" /></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-zinc-50/50 text-left text-left">
+                                    {chatMessages.map((m,i)=>(
+                                        <div key={i} className={`flex mb-10 ${m.role === 'user' ? 'justify-end' : 'justify-start'} text-left text-left`}>
+                                            {m.role === 'assistant' ? (
+                                                <div className="exec-report shadow-xl whitespace-pre-wrap text-left text-left text-left" dangerouslySetInnerHTML={{__html: m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}}></div>
+                                            ) : (
+                                                <div className="bg-[#1d1d1f] text-white p-6 rounded-[2rem] rounded-tr-none text-sm font-medium shadow-xl text-left text-left">{m.text}</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {isAiLoading && <div className="text-center py-10 animate-pulse uppercase text-[10px] font-black tracking-[0.5em] text-zinc-400 text-center">Processando Auditoria...</div>}
+                                    <div ref={chatEndRef}/>
+                                </div>
+                                <div className="p-8 bg-white border-t border-zinc-100 text-left text-left">
+                                    <div className="max-w-4xl mx-auto flex gap-4 bg-zinc-100 p-2.5 rounded-3xl text-left text-left">
+                                        <input type="text" value={userInput} onChange={e=>setUserInput(e.target.value)} onKeyDown={e=>e.key==='Enter' && handleSendMessage()} placeholder="Pergunte sobre as unidades..." className="flex-1 bg-transparent px-6 outline-none text-sm font-medium text-left text-left"/>
+                                        <button onClick={()=>handleSendMessage()} disabled={isAiLoading} className="bg-[#1d1d1f] text-white px-10 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all text-left">Enviar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showAdminModal && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl animate-in fade-in text-center text-center text-left">
+                            <div className="bg-zinc-900 border border-zinc-800 p-16 rounded-[50px] w-full max-w-md shadow-2xl text-center text-left text-left">
+                                <h3 className="text-2xl font-bold uppercase text-white mb-10 tracking-widest text-center text-left">ACESSO</h3>
+                                <input type="password" autoFocus value={adminInput} onChange={e=>{setAdminInput(e.target.value);setLoginError(false);}} onKeyDown={e=>e.key==='Enter'&&(adminInput===ADMIN_KEY? (setIsAdmin(true),setShowAdminModal(false),setAdminInput(''),setLoginError(false)) : setLoginError(true))} className={`w-full bg-black border ${loginError?'border-red-500':'border-zinc-800'} p-6 rounded-3xl text-center font-black text-xl text-white outline-none focus:bg-zinc-800 transition-all text-center text-left`} placeholder="CHAVE"/>
+                                <div className="flex gap-4 mt-10 text-center text-left text-left">
+                                    <button onClick={()=>setShowAdminModal(false)} className="flex-1 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center text-left">Sair</button>
+                                    <button onClick={()=>(adminInput===ADMIN_KEY? (setIsAdmin(true),setShowAdminModal(false),setAdminInput(''),setLoginError(false)) : setLoginError(true))} className="flex-1 bg-white text-black py-4 rounded-3xl text-[10px] font-bold uppercase tracking-widest shadow-2xl text-center text-left">Entrar</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
