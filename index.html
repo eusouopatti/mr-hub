@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PEF v1.2.1 - Mr. Shake Neural Intelligence</title>
+    <title>PEF v1.2.9 - Mr. Shake Neural Intelligence</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Inter:wght@100;300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -17,67 +17,24 @@
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-    <!-- Firebase SDK (Compat) -->
+    <!-- Firebase SDK (Compat Mode) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
         :root { --glass: rgba(255, 255, 255, 0.7); }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: #FBFBFD; 
-            color: #1d1d1f;
-            -webkit-font-smoothing: antialiased;
-            margin: 0;
-            overflow-x: hidden;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #FBFBFD; color: #1d1d1f; -webkit-font-smoothing: antialiased; margin: 0; overflow-x: hidden; }
         .font-baloo { font-family: 'Baloo 2', cursive; }
-        
-        .glass-card {
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 24px;
-            transition: all 0.3s ease;
-        }
-        .glass-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.03);
-        }
-
-        .ai-button {
-            background: #000;
-            color: #fff;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .ai-button:hover {
-            background: #333;
-            transform: scale(1.02);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        }
-
-        .exec-report {
-            background: white; color: #1d1d1f; padding: 40px 60px;
-            max-width: 850px; margin: 0 auto;
-            line-height: 1.8; font-size: 15px; font-weight: 400;
-            text-align: left;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.05);
-            border-radius: 4px;
-        }
-
-        @keyframes pulse-soft {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.1); }
-        }
+        .glass-card { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 24px; transition: all 0.3s ease; }
+        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.03); }
+        .ai-button { background: #000; color: #fff; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid rgba(255,255,255,0.1); }
+        .ai-button:hover { background: #333; transform: scale(1.02); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .exec-report { background: white; color: #1d1d1f; padding: 40px 60px; max-width: 850px; margin: 0 auto; line-height: 1.8; font-size: 15px; font-weight: 400; text-align: left; box-shadow: 0 10px 40px rgba(0,0,0,0.05); border-radius: 4px; }
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.1); } }
         .animate-neural { animation: pulse-soft 4s infinite ease-in-out; }
-
         .data-font { font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
-
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #d2d2d7; border-radius: 10px; }
     </style>
 </head>
@@ -85,18 +42,23 @@
     <div id="root"></div>
 
     <script type="text/babel">
+        // --- CONFIGURAÇÕES E CONSTANTES GLOBAIS ---
+        const LOGO_URL = "https://i.ibb.co/1f2w8RLy/mrshake-logo.png";
+        const APP_VERSION = "1.2.9";
+        const ADMIN_KEY = "305106112Aa@"; 
+        const geminiApiKey = "AIzaSyAF8DvJ0rYKoavPMi7bBCYP1ZVJqCsR5JA"; 
+
         const { useState, useEffect, useMemo, useRef } = React;
         const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } = window.Recharts;
 
-        // --- CONFIGURAÇÕES ---
-        const APP_VERSION = "1.2.1";
-        const LOGO_URL = "https://i.ibb.co/1f2w8RLy/mrshake-logo.png";
-        
-        // ATENÇÃO: Se estiver no Netlify, certifique-se de que estas variáveis estão preenchidas corretamente
-        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
-        const APP_ID = window.__app_id || 'mr-shake-pef-storage';
-        const ADMIN_KEY = "305106112Aa@"; 
-        const apiKey = "AIzaSyAF8DvJ0rYKoavPMi7bBCYP1ZVJqCsR5JA"; 
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyDqdNy8xSDH75dPcKhXTHmG0pwhZ4mwNrs",
+            authDomain: "pef-mrshake.firebaseapp.com",
+            projectId: "pef-mrshake",
+            storageBucket: "pef-mrshake.firebasestorage.app",
+            messagingSenderId: "657478416938",
+            appId: "1:657478416938:web:e89fe301b1629f9ea5a153"
+        };
 
         const CLASSIFICACOES = {
             COMITE: { color: '#a855f7' }, 
@@ -112,9 +74,16 @@
             "Karlla": "https://i.ibb.co/214SngTX/karlla.jpg"
         };
 
+        const isProduction = !window.location.hostname.includes('googleusercontent') && 
+                             !window.location.hostname.includes('localhost');
+
+        const APP_ID = typeof window.__app_id !== 'undefined' ? window.__app_id : 'mr-shake-pef-storage';
+
+        // --- UTILITÁRIOS ---
         const parseVal = (v) => {
+            if (v === null || v === undefined || v === '') return 0;
             if (typeof v === 'number') return v;
-            let c = String(v || "0").replace(/[R$%\s]/g, "").replace(/\./g, "").replace(",", ".");
+            let c = String(v).replace(/[R$%\s]/g, "").replace(/\./g, "").replace(",", ".");
             return parseFloat(c) || 0;
         };
 
@@ -127,13 +96,12 @@
         };
 
         // --- COMPONENTES AUXILIARES ---
-
         const CustomTooltip = ({ active, payload, total }) => {
             if (active && payload && payload.length) {
                 const val = payload[0].value;
                 const perc = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
                 return (
-                    <div className="bg-white/90 backdrop-blur-md border border-[#f5f5f7] p-4 rounded-2xl shadow-2xl text-left text-left">
+                    <div className="bg-white/90 backdrop-blur-md border border-[#f5f5f7] p-4 rounded-2xl shadow-2xl text-left">
                         <p className="text-[10px] font-bold text-[#86868b] uppercase tracking-[0.2em] mb-1">{payload[0].payload.name}</p>
                         <p className="text-xl font-bold text-[#1d1d1f] leading-none">{val} Unidades</p>
                         <p className="text-xs font-semibold text-purple-600 mt-2">{perc}% da seleção</p>
@@ -153,58 +121,26 @@
                     </g>
                 ),
                 x: <path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-                import: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5 5 5 5-5m-5 5V3" fill="none" stroke={color} strokeWidth="1.2"/>,
-                database: <path d="M12 21c-4.418 0-8-1.79-8-4s3.582-4 8-4 8 1.79 8 4-3.582 4-8 4zm8-4V7c0-2.21-3.582-4-8-4S4 4.79 4 7v10m16-5c0 2.21-3.582 4-8 4S4 14.21 4 12" fill="none" stroke={color} strokeWidth="1.2"/>,
                 lock: <path d="M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z" fill="none" stroke={color} strokeWidth="1.2"/>,
                 unlock: <path d="M7 11V7a5 5 0 0 1 8-4M5 11h14v10H5z" fill="none" stroke={color} strokeWidth="1.2"/>,
+                import: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5 5 5 5-5m-5 5V3" fill="none" stroke={color} strokeWidth="1.2"/>,
                 trash: <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke={color} strokeWidth="1.2"/>
             };
             return <svg width={size} height={size} viewBox="0 0 24 24" fill="none">{icons[name] || icons.neural}</svg>;
         };
 
-        const TableView = ({ data, title, color, totalOverall }) => (
-            <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 text-left">
-                <div className="flex items-baseline justify-between mb-6 px-2 text-left text-left">
-                    <h2 className="text-3xl font-bold tracking-tight text-[#1d1d1f] uppercase text-left">{title}</h2>
-                    <span className="text-xs font-medium text-[#86868b] tracking-tight">{data.length} unidades</span>
-                </div>
-                <div className="glass-card overflow-hidden text-left">
-                    <table className="w-full text-left border-collapse text-left">
-                        <thead>
-                            <tr className="bg-[#f5f5f7]/30 border-b border-[#f5f5f7] text-left">
-                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b] text-left">Unidade</th>
-                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b] text-left">Consultor</th>
-                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b] text-right">Pontos</th>
-                                <th className="p-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b] text-center">Desconto</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#f5f5f7] text-left text-left">
-                            {data.map((l, i) => (
-                                <tr key={i} className="hover:bg-white transition-all group text-left">
-                                    <td className="p-5 font-bold text-[#1d1d1f] border-l-4 text-left" style={{ borderColor: color }}>{l.cidade}</td>
-                                    <td className="p-5 text-xs font-medium text-[#86868b] text-left">{l.consultorMapeado}</td>
-                                    <td className="p-5 text-xl font-bold text-right text-[#1d1d1f] data-font">{parseFloat(l.total || 0).toFixed(2)}</td>
-                                    <td className="p-5 text-sm font-semibold text-center text-[#86868b]">{l.desconto}%</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        );
-
         const EvolutionCard = ({ title, list, targetColor, nextPts }) => (
-            <div className="glass-card p-6 flex-1 min-w-[300px] text-left text-left">
-                <div className="flex items-center justify-between mb-5 text-left text-left">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#86868b] text-left">{title}</span>
+            <div className="glass-card p-6 flex-1 min-w-[300px] text-left">
+                <div className="flex items-center justify-between mb-5">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#86868b]">{title}</span>
                     <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: targetColor }} />
                 </div>
-                <div className="space-y-3 text-left">
+                <div className="space-y-3">
                     {list.length > 0 ? list.map((loja, i) => (
-                        <div key={i} className="flex items-center justify-between group text-left text-left">
-                            <div className="text-left text-left">
-                                <div className="text-sm font-semibold text-[#1d1d1f] group-hover:text-purple-600 transition-colors text-left">{loja.cidade}</div>
-                                <div className="text-[10px] font-medium text-[#86868b] text-left">Faltam {(nextPts - parseVal(loja.total)).toFixed(2)} pts</div>
+                        <div key={i} className="flex items-center justify-between group">
+                            <div className="text-left">
+                                <div className="text-sm font-semibold text-[#1d1d1f] group-hover:text-purple-600 transition-colors"><strong>{loja.cidade}</strong></div>
+                                <div className="text-[10px] font-medium text-[#86868b]">Faltam {(nextPts - parseVal(loja.total)).toFixed(2)} pts</div>
                             </div>
                             <div className="text-sm font-bold text-[#1d1d1f] data-font">{parseVal(loja.total).toFixed(2)}</div>
                         </div>
@@ -214,6 +150,7 @@
         );
 
         const App = () => {
+            // 1. Estados
             const [user, setUser] = useState(null);
             const [db, setDb] = useState(null);
             const [isAdmin, setIsAdmin] = useState(false);
@@ -238,51 +175,11 @@
             const fileInputRef = useRef(null);
             const chatEndRef = useRef(null);
 
-            useEffect(() => {
-                const initFirebase = async () => {
-                    try {
-                        if (firebase.apps.length === 0) firebase.initializeApp(firebaseConfig);
-                        const auth = firebase.auth();
-                        const firestore = firebase.firestore();
-                        setDb(firestore);
-                        
-                        // REGRA 3: Autenticação mandatória antes de qualquer query
-                        if (window.__initial_auth_token) {
-                            await auth.signInWithCustomToken(window.__initial_auth_token);
-                        } else {
-                            await auth.signInAnonymously();
-                        }
-                        
-                        auth.onAuthStateChanged((u) => {
-                            setUser(u);
-                        });
-                    } catch (e) {
-                        console.error("Erro Firebase Init:", e);
-                    }
-                };
-                initFirebase();
-            }, []);
+            // 2. Memos (Cálculos e Processamento de Dados) - Declarados antes dos efeitos para evitar erros de referência
+            const activePeriodo = useMemo(() => {
+                return historicoPef.find(x => x.id === periodoAlvoId) || null;
+            }, [historicoPef, periodoAlvoId]);
 
-            useEffect(() => {
-                if (!user || !db) return;
-                const unsub = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef')
-                    .onSnapshot((snap) => {
-                        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        const sorted = data.sort((a, b) => b.criadoEm?.localeCompare(a.criadoEm));
-                        setHistoricoPef(sorted);
-                        if (sorted.length > 0 && !periodoAlvoId) setPeriodoAlvoId(sorted[0].id);
-                    }, (err) => {
-                        console.error("Erro Snapshot:", err);
-                    });
-                return () => unsub();
-            }, [user, db]);
-
-            useEffect(() => {
-                if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-            }, [chatMessages, isAiLoading]);
-
-            const activePeriodo = useMemo(() => historicoPef.find(x => x.id === periodoAlvoId), [historicoPef, periodoAlvoId]);
-            
             const processedData = useMemo(() => {
                 if (!activePeriodo) return [];
                 return (activePeriodo.lojas || [])
@@ -312,7 +209,50 @@
                 return { totalRede, basePEF, royaltiesBrutos: basePEF * 0.045, totalDesconto, counts, total: activeData.length, participantesPEF };
             }, [activeData]);
 
-            // --- FUNÇÕES DE INTERAÇÃO ---
+            // 3. Efeitos (Ligação com Firebase)
+            useEffect(() => {
+                const initAuth = async () => {
+                    try {
+                        const envConfigStr = typeof window.__firebase_config !== 'undefined' ? window.__firebase_config : null;
+                        const envConfig = envConfigStr ? JSON.parse(envConfigStr) : null;
+                        const finalConfig = (envConfig && !isProduction) ? envConfig : myFirebaseConfig;
+
+                        if (firebase.apps.length === 0) firebase.initializeApp(finalConfig);
+                        
+                        const auth = firebase.auth();
+                        const firestore = firebase.firestore();
+                        setDb(firestore);
+                        
+                        if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token && !isProduction) {
+                            await auth.signInWithCustomToken(window.__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (e) {
+                        console.error("Firebase Init Error:", e);
+                        if (e.code === 'auth/configuration-not-found') {
+                            setSaveError("CONFIGURAÇÃO: Ative o método 'Anónimo' no Console do Firebase.");
+                        }
+                    }
+                };
+                initAuth();
+                const unsubscribe = firebase.auth().onAuthStateChanged((u) => setUser(u));
+                return () => unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                if (!user || !db) return;
+                const unsub = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef')
+                    .onSnapshot((snap) => {
+                        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        const sorted = data.sort((a, b) => b.criadoEm?.localeCompare(a.criadoEm));
+                        setHistoricoPef(sorted);
+                        if (sorted.length > 0 && !periodoAlvoId) setPeriodoAlvoId(sorted[0].id);
+                    }, (err) => console.error("Snapshot Error:", err));
+                return () => unsub();
+            }, [user, db, periodoAlvoId]);
+
+            // 4. Handlers (Interações)
             const onDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
             const onDragLeave = () => { setIsDragging(false); };
             const onDrop = (e) => { e.preventDefault(); setIsDragging(false); handleFileUpload(e); };
@@ -323,13 +263,10 @@
                     setSaveError('Preencha o mês e carregue o ficheiro primeiro.');
                     return;
                 }
-                
-                // REGRA 3: Proteção contra gravação sem user
                 if (!user) {
-                    setSaveError('Erro: Autenticação não concluída. Tente novamente em segundos.');
+                    setSaveError('Aguarde a autenticação...');
                     return;
                 }
-
                 setIsSaving(true);
                 try {
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef').add({
@@ -341,11 +278,8 @@
                     setNovoMes({...novoMes, mes: '', lojasProcessadas: []});
                     setView('dashboard');
                 } catch (e) {
-                    setSaveError('Falha ao gravar no Firebase. Verifique a ligação.');
-                    console.error(e);
-                } finally {
-                    setIsSaving(false);
-                }
+                    setSaveError('Erro ao gravar no Firestore.');
+                } finally { setIsSaving(false); }
             };
 
             const handleSendMessage = async (msgOverride = null) => {
@@ -361,33 +295,19 @@
                     .map(l => `**${l.cidade}**: ${parseVal(l.total)} pts`)
                     .join('; ');
 
-                const bronzeStores = activeData.filter(l => String(l.classe).toUpperCase() === 'BRONZE');
-                const bronzeZeros = bronzeStores.map(l => {
-                    const z = [];
-                    if (parseVal(l.financeiro) === 0) z.push("FINANCEIRO");
-                    if (parseVal(l.meta) === 0) z.push("META");
-                    if (parseVal(l.syntax) === 0) z.push("SYNTAX");
-                    if (parseVal(l.engajamento) === 0) z.push("ENGAJAMENTO");
-                    if (parseVal(l.oculto) === 0) z.push("OCULTO");
-                    return `**${l.cidade}** [Critérios técnicos zerados: ${z.join(', ') || 'Nenhum'}]`;
-                }).join('; ');
-
-                const systemInstruction = `Voce é o Analista Neural Intelligence da Mr. Shake. Atue de forma executiva e técnica.
-                DATASET: Periodo ${activePeriodo?.titulo}, Consultor ${consultorAlvo}, Total ${finStats.total}, PEF ${finStats.participantesPEF}.
-                BRONZE (ZEROS): ${bronzeZeros}. PRATA: ${formatList('PRATA')}. OURO: ${formatList('OURO')}. DIAMANTE: ${formatList('DIAMANTE')}.
-                FORMATO: Use CAIXA ALTA APENAS para TÍTULOS. Nomes de lojas sempre em **negrito**. Texto normal no restante. SEM Markdown de cabeçalho (#).`;
+                const systemInstruction = `Voce é o Analista Neural da Mr. Shake. Atue de forma executiva.
+                DADOS: Periodo ${activePeriodo?.titulo}, Consultor ${consultorAlvo}.
+                FORMATO: Use CAIXA ALTA APENAS para TÍTULOS. Nomes de lojas sempre em **negrito**. Texto normal no restante.`;
 
                 try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ contents: newMessages.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })), systemInstruction: { parts: [{ text: systemInstruction }] } })
                     });
                     const d = await res.json();
-                    setChatMessages([...newMessages, { role: 'assistant', text: d.candidates?.[0]?.content?.parts?.[0]?.text || "Erro na análise neural." }]);
-                } catch (e) {
-                    setChatMessages([...newMessages, { role: 'assistant', text: "Erro de conexão neural." }]);
-                }
+                    setChatMessages([...newMessages, { role: 'assistant', text: d.candidates?.[0]?.content?.parts?.[0]?.text || "Erro na análise." }]);
+                } catch (e) { setChatMessages([...newMessages, { role: 'assistant', text: "Erro de conexão neural." }]); }
                 setIsAiLoading(false);
             };
 
@@ -404,24 +324,22 @@
                             faturamento: r[19] || 0, meta: r[32] || 0, total: r[33] || 0, classe: r[34] || "BRONZE", desconto: r[35] || 0
                         })).filter(l => l.codigo && String(l.codigo) !== "0" && !String(l.cidade).includes("TOTAL"));
                         setNovoMes(p => ({...p, lojasProcessadas: processed})); setUploadSuccess(true);
-                    } catch (err) {
-                        setSaveError('Erro ao ler o ficheiro Excel.');
-                    }
+                    } catch (err) { setSaveError('Erro ao ler o ficheiro Excel.'); }
                 };
                 reader.readAsArrayBuffer(file);
             };
 
             return (
                 <div className="min-h-screen pb-10 text-left">
-                    <nav className="h-16 bg-[#1D1D1F]/90 backdrop-blur-xl sticky top-0 z-50 border-b border-black flex items-center justify-between px-8 transition-all duration-500 text-left text-left">
-                        <div className="flex items-center gap-5 text-left">
+                    <nav className="h-16 bg-[#1D1D1F]/90 backdrop-blur-xl sticky top-0 z-50 border-b border-black flex items-center justify-between px-8">
+                        <div className="flex items-center gap-5">
                             <img src={LOGO_URL} className="h-8" />
                             <div className="h-6 w-[1px] bg-zinc-700"/>
-                            <div className="text-left leading-none text-white font-bold uppercase tracking-tight text-xl text-left">
+                            <div className="text-left leading-none text-white font-bold uppercase tracking-tight text-xl">
                                 PEF <span className="text-[10px] block text-zinc-500 font-normal uppercase tracking-widest mt-1">Neural Intelligence</span>
                             </div>
                         </div>
-                        <div className="flex gap-2 bg-zinc-800/40 p-1 rounded-2xl border border-zinc-700/30 text-left text-left">
+                        <div className="flex gap-2 bg-zinc-800/40 p-1 rounded-2xl border border-zinc-700/30 text-left">
                             <button onClick={()=>{setView('dashboard'); setDashTab('resumo');}} className={`px-5 py-2 rounded-xl text-[10px] font-bold transition-all ${view==='dashboard'?'bg-white text-black shadow-sm':'text-zinc-500 hover:text-white'}`}>Painel</button>
                             {isAdmin && (
                                 <>
@@ -433,42 +351,48 @@
                         </div>
                     </nav>
 
-                    <main className="max-w-6xl mx-auto mt-10 px-8 text-left text-left text-left">
+                    <main className="max-w-6xl mx-auto mt-10 px-8 text-left">
+                        {saveError && (
+                            <div className="bg-red-50 border border-red-200 p-4 rounded-xl mb-8 flex items-center gap-4 text-red-800 text-sm font-bold animate-in slide-in-from-top-4">
+                                ⚠️ {saveError}
+                            </div>
+                        )}
+
                         {view === 'dashboard' && (
-                            <div className="animate-in fade-in duration-500 text-left text-left">
+                            <div className="animate-in fade-in duration-500 text-left">
                                 <header className="flex justify-between items-end mb-10 text-left">
                                     <div className="text-left">
-                                        <h1 className="text-4xl font-bold tracking-tighter uppercase text-left text-left">Dashboard</h1>
+                                        <h1 className="text-4xl font-bold tracking-tighter uppercase text-left">Dashboard</h1>
                                         <p className="text-zinc-400 uppercase text-[10px] tracking-widest mt-1 text-left">gestao de performance</p>
                                     </div>
                                     <div className="flex items-center gap-5 text-left text-left">
                                         {consultorAlvo !== 'TODOS' && CONSULTOR_IMAGES[consultorAlvo] && <img src={CONSULTOR_IMAGES[consultorAlvo]} className="h-12 w-12 rounded-full border-2 border-white shadow-md"/>}
                                         <div className="flex flex-col text-left">
-                                            <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1 ml-1 text-left text-left text-left">Filtro de Campo</span>
-                                            <div className="flex gap-2 text-left text-left text-left text-left text-left">
+                                            <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1 ml-1 text-left">Filtro de Campo</span>
+                                            <div className="flex gap-2">
                                                 <select value={consultorAlvo} onChange={(e) => {setConsultorAlvo(e.target.value); setDashTab('resumo');}} className="bg-white border border-zinc-200 px-4 py-2.5 rounded-xl text-[10px] font-bold outline-none shadow-sm cursor-pointer text-left">
                                                     <option value="TODOS">TODA A REDE</option>
                                                     {Array.from(new Set(processedData.map(l => l.consultorMapeado))).filter(c=>c!=="Outros").map(c=><option key={c} value={c}>{c.toUpperCase()}</option>)}
                                                 </select>
-                                                <select value={periodoAlvoId} onChange={(e) => {setPeriodoAlvoId(e.target.value); setConsultorAlvo('TODOS'); setDashTab('resumo');}} className="bg-white border border-zinc-200 px-4 py-2.5 rounded-xl text-[10px] font-bold outline-none shadow-sm cursor-pointer text-left text-left">
+                                                <select value={periodoAlvoId} onChange={(e) => {setPeriodoAlvoId(e.target.value); setConsultorAlvo('TODOS'); setDashTab('resumo');}} className="bg-white border border-zinc-200 px-4 py-2.5 rounded-xl text-[10px] font-bold outline-none shadow-sm cursor-pointer text-left">
                                                     {historicoPef.map(p=><option key={p.id} value={p.id}>{p.titulo}</option>)}
                                                 </select>
                                             </div>
                                         </div>
-                                        <button onClick={()=>{if(!activePeriodo) return; setShowAiModal(true); if(chatMessages.length===0) handleSendMessage("Gerar relatório oficial de auditoria.");}} className="ai-button mt-5 px-8 py-3 rounded-xl font-bold text-[9px] uppercase flex items-center gap-2 tracking-widest shadow-xl text-left text-left"><div className="animate-neural"><Icon name="neural" size={14} color="white"/></div> Neural Intelligence</button>
+                                        <button onClick={()=>{if(!activePeriodo) return; setShowAiModal(true); if(chatMessages.length===0) handleSendMessage("Gerar relatório oficial.");}} className="ai-button mt-5 px-8 py-3 rounded-xl font-bold text-[9px] uppercase flex items-center gap-2 tracking-widest shadow-xl text-left"><div className="animate-neural"><Icon name="neural" size={14} color="white"/></div> Neural Intelligence</button>
                                     </div>
                                 </header>
 
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10 text-left text-left text-left">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10 text-left">
                                     {[ 
                                         {l:'Faturamento Rede',v:finStats.totalRede}, 
                                         {l:'Base PEF',v:finStats.basePEF}, 
                                         {l:'Royalties (4,5%)',v:finStats.royaltiesBrutos}, 
                                         {l:'Descontos PEF',v:finStats.totalDesconto, c:true} 
                                     ].map((x,i)=>(
-                                        <div key={i} className="glass-card p-6 flex flex-col justify-between text-left">
-                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-left text-left">{x.l}</span>
-                                            <span className={`text-xl font-bold data-font ${x.c?'text-blue-600':''} text-left text-left`}>R$ {x.v.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+                                        <div key={i} className="glass-card p-6 flex flex-col justify-between text-left text-left">
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-left">{x.l}</span>
+                                            <span className={`text-xl font-bold data-font ${x.c?'text-blue-600':''} text-left`}>R$ {x.v.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -487,11 +411,11 @@
                                 </div>
 
                                 {dashTab === 'resumo' ? (
-                                    <div className="space-y-12 text-left">
+                                    <div className="space-y-12 text-left text-left">
                                         <div className="glass-card p-8 h-[380px] relative text-left">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <BarChart data={Object.keys(CLASSIFICACOES).map(cls => ({ name: cls, value: finStats.counts[cls] || 0, fill: CLASSIFICACOES[cls].color }))} margin={{top: 30}}>
-                                                    <XAxis dataKey="name" fontSize={10} fontBold axisLine={false} tickLine={false} tick={{fill: '#86868b'}} dy={10}/><YAxis hide/><Tooltip cursor={{fill: '#f5f5f7'}} content={<CustomTooltip total={finStats.total}/>}/><Bar dataKey="value" radius={[10,10,10,10]} barSize={35}>{Object.keys(CLASSIFICACOES).map((c,i)=><Cell key={i} fill={CLASSIFICACOES[c].color}/>)}</Bar>
+                                                    <XAxis dataKey="name" fontSize={10} fontWeight="900" axisLine={false} tickLine={false} tick={{fill: '#86868b'}} dy={10}/><YAxis hide/><Tooltip cursor={{fill: '#f5f5f7'}} content={<CustomTooltip total={finStats.total}/>}/><Bar dataKey="value" radius={[10,10,10,10]} barSize={35}>{Object.keys(CLASSIFICACOES).map((c,i)=><Cell key={i} fill={CLASSIFICACOES[c].color}/>)}</Bar>
                                                 </BarChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -502,47 +426,53 @@
                                         </div>
                                     </div>
                                 ) : (
-                                    <TableView data={activeData.filter(l => l.classe.toLowerCase() === dashTab).sort((a,b) => parseVal(b.total) - parseVal(a.total))} title={dashTab} color={CLASSIFICACOES[dashTab.toUpperCase()]?.color} totalOverall={finStats.total}/>
+                                    <div className="glass-card overflow-hidden text-left text-left text-left text-left">
+                                        <table className="w-full text-left">
+                                            <thead><tr className="bg-zinc-50 border-b border-zinc-100 text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-left"><th className="p-5">Unidade</th><th className="p-5 text-right">Performance</th><th className="p-5 text-center">Benefício</th></tr></thead>
+                                            <tbody className="divide-y divide-zinc-50 text-left">
+                                                {activeData.filter(l => l.classe.toLowerCase() === dashTab).sort((a,b)=>parseVal(b.total)-parseVal(a.total)).map((l, i) => (
+                                                    <tr key={i} className="hover:bg-zinc-50 transition-colors text-left text-left">
+                                                        <td className="p-5 font-bold text-black border-l-4 text-left" style={{borderColor: CLASSIFICACOES[dashTab.toUpperCase()]?.color}}><strong>{l.cidade}</strong></td>
+                                                        <td className="p-5 text-right font-black data-font text-xl">{parseFloat(l.total).toFixed(2)}</td>
+                                                        <td className="p-5 text-center text-xs font-bold text-zinc-400">{l.desconto}%</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
                             </div>
                         )}
 
                         {view === 'upload' && isAdmin && (
                             <div className="max-w-xl mx-auto glass-card p-12 text-center animate-in zoom-in duration-500 text-left">
-                                <h2 className="text-3xl font-bold uppercase tracking-tighter mb-8 text-center text-left text-left">Importação</h2>
-                                <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={()=>fileInputRef.current.click()} className={`border-2 border-dashed p-16 rounded-[2rem] cursor-pointer transition-all ${isDragging?'border-blue-500 bg-blue-50':'border-zinc-200'} text-center text-left text-left`}>
+                                <h2 className="text-3xl font-bold uppercase tracking-tighter mb-8 text-center text-left">Importação</h2>
+                                <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={()=>fileInputRef.current.click()} className={`border-2 border-dashed p-16 rounded-[2rem] cursor-pointer transition-all ${isDragging?'border-blue-500 bg-blue-50':'border-zinc-200'} text-center text-left`}>
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept=".xlsx,.xls"/>
-                                    <div className="text-4xl mb-4 opacity-20 text-center text-center">📄</div>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 text-center text-center">{uploadSuccess ? 'DADOS CARREGADOS' : 'CLIQUE OU ARRASTE O EXCEL'}</span>
+                                    <div className="text-4xl mb-4 opacity-20 text-center">📄</div>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 text-center">{uploadSuccess ? 'DADOS CARREGADOS' : 'CLIQUE OU ARRASTE O EXCEL'}</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 mt-8 text-left text-left text-left">
-                                    <div className="text-left text-left text-left"><span className="text-[9px] font-bold text-zinc-400 uppercase ml-2 text-left text-left">Mês</span><input type="number" value={novoMes.mes} onChange={e=>setNovoMes({...novoMes, mes: e.target.value})} className="w-full bg-white border border-zinc-200 p-3.5 rounded-xl text-center font-bold outline-none focus:border-black text-center text-left"/></div>
-                                    <div className="text-left text-left text-left"><span className="text-[9px] font-bold text-zinc-400 uppercase ml-2 text-left text-left">Ano</span><input type="number" value={novoMes.ano} onChange={e=>setNovoMes({...novoMes, ano: e.target.value})} className="w-full bg-white border border-zinc-200 p-3.5 rounded-xl text-center font-bold outline-none focus:border-black text-center text-left"/></div>
+                                <div className="grid grid-cols-2 gap-4 mt-8 text-left text-left">
+                                    <div><span className="text-[9px] font-bold text-zinc-400 uppercase ml-2 text-left">Mês</span><input type="number" value={novoMes.mes} onChange={e=>setNovoMes({...novoMes, mes: e.target.value})} className="w-full bg-white border border-zinc-200 p-3.5 rounded-xl text-center font-bold outline-none focus:border-black text-center"/></div>
+                                    <div><span className="text-[9px] font-bold text-zinc-400 uppercase ml-2 text-left">Ano</span><input type="number" value={novoMes.ano} onChange={e=>setNovoMes({...novoMes, ano: e.target.value})} className="w-full bg-white border border-zinc-200 p-3.5 rounded-xl text-center font-bold outline-none focus:border-black text-center"/></div>
                                 </div>
-                                
-                                {saveError && <div className="mt-4 p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl text-center">{saveError}</div>}
-                                
-                                <button 
-                                    onClick={handleSaveData} 
-                                    disabled={isSaving || !novoMes.mes || !uploadSuccess}
-                                    className={`w-full text-white py-5 rounded-2xl mt-10 font-bold uppercase tracking-widest text-[10px] shadow-2xl transition-all ${isSaving ? 'bg-zinc-400' : 'bg-black active:scale-95'}`}
-                                >
-                                    {isSaving ? 'A GRAVAR NO BANCO...' : 'GRAVAR NO BANCO'}
-                                </button>
+                                <button onClick={handleSaveData} disabled={isSaving} className={`w-full text-white py-5 rounded-2xl mt-10 font-bold uppercase tracking-widest text-[10px] shadow-2xl transition-all ${isSaving ? 'bg-zinc-400' : 'bg-black active:scale-95'}`}>{isSaving ? 'A GRAVAR...' : 'GRAVAR NO BANCO'}</button>
                             </div>
                         )}
 
                         {view === 'history' && isAdmin && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-500 text-left">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-500 text-left text-left text-left">
                                 {historicoPef.map(p=>(
-                                    <div key={p.id} className="glass-card p-8 flex items-center justify-between text-left text-left">
+                                    <div key={p.id} className="glass-card p-8 flex items-center justify-between text-left">
                                         <div className="text-left text-left">
                                             <h3 className="text-2xl font-bold uppercase tracking-tighter text-[#1d1d1f] text-left text-left">{p.titulo}</h3>
-                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-left text-left">{p.lojas?.length||0} unidades registradas</span>
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest text-left">{p.lojas?.length||0} unidades registradas</span>
                                         </div>
                                         <div className="flex gap-3 text-left">
-                                            <button onClick={async()=>{if(confirm('Eliminar registro?')) await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef').doc(p.id).delete();}} className="p-3 text-zinc-300 hover:text-red-500 bg-[#f5f5f7] rounded-xl text-left"><Icon name="trash" size={20}/></button>
-                                            <button onClick={()=>{setPeriodoAlvoId(p.id); setView('dashboard');}} className="p-3 bg-black text-white rounded-xl shadow-md text-left text-left"><Icon name="import" size={18}/></button>
+                                            <button onClick={async()=>{if(confirm('Eliminar?')) {
+                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('periodos_pef').doc(p.id).delete();
+                                            }}} className="p-3 text-zinc-300 hover:text-red-500 bg-[#f5f5f7] rounded-xl text-left"><Icon name="trash" size={20}/></button>
+                                            <button onClick={()=>{setPeriodoAlvoId(p.id); setView('dashboard');}} className="p-3 bg-black text-white rounded-xl shadow-md text-left"><Icon name="import" size={18}/></button>
                                         </div>
                                     </div>
                                 ))}
@@ -550,33 +480,29 @@
                         )}
                     </main>
 
-                    <footer className="mt-10 py-8 text-center opacity-30 text-[9px] font-black uppercase tracking-[0.5em] text-zinc-500 text-center text-left">
-                        Mr. Shake Neural System • v{APP_VERSION}
-                    </footer>
-
                     {showAiModal && (
                         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-white/90 backdrop-blur-xl animate-in fade-in duration-300 text-left text-left text-left">
-                            <div className="bg-white border border-zinc-200 rounded-[32px] w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden text-left text-left text-left">
+                            <div className="bg-white border border-zinc-200 rounded-[32px] w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden text-left text-left">
                                 <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-white text-left text-left">
-                                    <div className="flex items-center gap-4 text-left text-left text-left"><div className="bg-black p-3 rounded-2xl text-white shadow-lg text-left text-left"><Icon name="neural" size={24}/></div><div className="text-left text-left text-left text-left"><h3 className="text-xl font-bold uppercase tracking-tighter text-left text-left text-left">Neural Intelligence</h3><p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-left text-left">Auditoria Mr. Shake</p></div></div>
-                                    <button onClick={()=>setShowAiModal(false)} className="bg-zinc-50 p-2 rounded-full hover:bg-zinc-100 transition-colors text-left text-left text-left"><Icon name="x" size={24} color="#000" /></button>
+                                    <div className="flex items-center gap-4 text-left text-left text-left"><div className="bg-black p-3 rounded-2xl text-white shadow-lg text-left"><Icon name="neural" size={24}/></div><div className="text-left text-left text-left"><h3 className="text-xl font-bold uppercase tracking-tighter text-left">Neural Intelligence</h3><p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-left">Auditoria Mr. Shake</p></div></div>
+                                    <button onClick={()=>setShowAiModal(false)} className="bg-zinc-50 p-2 rounded-full hover:bg-zinc-100 transition-colors text-left"><Icon name="x" size={24} color="#000" /></button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-zinc-50/50 text-left text-left text-left">
+                                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-zinc-50/50 text-left">
                                     {chatMessages.map((m,i)=>(
-                                        <div key={i} className={`flex mb-10 ${m.role === 'user' ? 'justify-end' : 'justify-start'} text-left text-left`}>
+                                        <div key={i} className={`flex mb-10 ${m.role === 'user' ? 'justify-end' : 'justify-start'} text-left`}>
                                             {m.role === 'assistant' ? (
-                                                <div className="exec-report shadow-xl whitespace-pre-wrap text-left text-left text-left" dangerouslySetInnerHTML={{__html: m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}}></div>
+                                                <div className="exec-report shadow-xl whitespace-pre-wrap text-left" dangerouslySetInnerHTML={{__html: m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}}></div>
                                             ) : (
-                                                <div className="bg-[#1d1d1f] text-white p-6 rounded-[2rem] rounded-tr-none text-sm font-medium shadow-xl text-left text-left text-left">{m.text}</div>
+                                                <div className="bg-[#1d1d1f] text-white p-6 rounded-[2rem] rounded-tr-none text-sm font-medium shadow-xl text-left">{m.text}</div>
                                             )}
                                         </div>
                                     ))}
-                                    {isAiLoading && <div className="text-center py-10 animate-pulse uppercase text-[10px] font-black tracking-[0.5em] text-zinc-400 text-center text-center">Processando Auditoria...</div>}
+                                    {isAiLoading && <div className="text-center py-10 animate-pulse uppercase text-[10px] font-black tracking-[0.5em] text-zinc-400 text-center">Analisando...</div>}
                                     <div ref={chatEndRef}/>
                                 </div>
-                                <div className="p-8 bg-white border-t border-zinc-100 text-left text-left text-left">
-                                    <div className="max-w-4xl mx-auto flex gap-4 bg-zinc-100 p-2.5 rounded-3xl text-left text-left text-left">
-                                        <input type="text" value={userInput} onChange={e=>setUserInput(e.target.value)} onKeyDown={e=>e.key==='Enter' && handleSendMessage()} placeholder="Pergunte sobre as unidades..." className="flex-1 bg-transparent px-6 outline-none text-sm font-medium text-left text-left text-left"/>
+                                <div className="p-8 bg-white border-t border-zinc-100 text-left">
+                                    <div className="max-w-4xl mx-auto flex gap-4 bg-zinc-100 p-2.5 rounded-3xl text-left">
+                                        <input type="text" value={userInput} onChange={e=>setUserInput(e.target.value)} onKeyDown={e=>e.key==='Enter' && handleSendMessage()} placeholder="Pergunte sobre as unidades..." className="flex-1 bg-transparent px-6 outline-none text-sm font-medium text-left"/>
                                         <button onClick={()=>handleSendMessage()} disabled={isAiLoading} className="bg-[#1d1d1f] text-white px-10 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all text-left">Enviar</button>
                                     </div>
                                 </div>
@@ -585,17 +511,18 @@
                     )}
 
                     {showAdminModal && (
-                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl animate-in fade-in text-center text-center text-left">
-                            <div className="bg-zinc-900 border border-zinc-800 p-16 rounded-[50px] w-full max-w-md shadow-2xl text-center text-left text-left">
-                                <h3 className="text-2xl font-bold uppercase text-white mb-10 tracking-widest text-center text-left text-left">ACESSO</h3>
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl animate-in fade-in text-center text-left text-left text-left text-left">
+                            <div className="bg-zinc-900 border border-zinc-800 p-16 rounded-[50px] w-full max-w-md shadow-2xl text-center text-left">
+                                <h3 className="text-2xl font-bold uppercase text-white mb-10 tracking-widest text-center text-left">ACESSO</h3>
                                 <input type="password" autoFocus value={adminInput} onChange={e=>{setAdminInput(e.target.value);setLoginError(false);}} onKeyDown={e=>e.key==='Enter'&&(adminInput===ADMIN_KEY? (setIsAdmin(true),setShowAdminModal(false),setAdminInput(''),setLoginError(false)) : setLoginError(true))} className={`w-full bg-black border ${loginError?'border-red-500':'border-zinc-800'} p-6 rounded-3xl text-center font-black text-xl text-white outline-none focus:bg-zinc-800 transition-all text-center text-left`} placeholder="CHAVE"/>
-                                <div className="flex gap-4 mt-10 text-center text-left text-left">
-                                    <button onClick={()=>setShowAdminModal(false)} className="flex-1 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center text-left">Sair</button>
-                                    <button onClick={()=>(adminInput===ADMIN_KEY? (setIsAdmin(true),setShowAdminModal(false),setAdminInput(''),setLoginError(false)) : setLoginError(true))} className="flex-1 bg-white text-black py-4 rounded-3xl text-[10px] font-bold uppercase tracking-widest shadow-2xl text-center text-left">Entrar</button>
+                                <div className="flex gap-4 mt-10 text-center text-left">
+                                    <button onClick={()=>setShowAdminModal(false)} className="flex-1 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">Sair</button>
+                                    <button onClick={()=>(adminInput===ADMIN_KEY? (setIsAdmin(true),setShowAdminModal(false),setAdminInput(''),setLoginError(false)) : setLoginError(true))} className="flex-1 bg-white text-black py-4 rounded-3xl text-[10px] font-bold uppercase tracking-widest shadow-2xl text-center">Entrar</button>
                                 </div>
                             </div>
                         </div>
                     )}
+                    <footer className="mt-10 py-8 text-center opacity-30 text-[9px] font-black uppercase tracking-[0.5em] text-zinc-500 text-center text-center">Mr. Shake Neural System • v{APP_VERSION}</footer>
                 </div>
             );
         };
